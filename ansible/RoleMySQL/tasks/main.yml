@@ -1,0 +1,78 @@
+# roles/RoleMySQL/tasks/main.yml
+---
+- name: Install MariaDB server and client packages
+  apt:
+    name:
+      - mariadb-server
+      - mariadb-client
+      - python3-mysqldb
+      - libmariadb-dev
+    state: present
+  become: true
+
+- name: Allow MariaDB remote connections
+  lineinfile:
+    path: /etc/mysql/mariadb.conf.d/50-server.cnf
+    regexp: '^bind-address'
+    line: 'bind-address = 0.0.0.0'
+  notify: Restart MariaDB
+  become: true
+
+- name: Restart MariaDB service
+  ansible.builtin.service:
+    name: mariadb
+    state: restarted
+  become: true
+
+- name: Create group cytech_grp
+  ansible.builtin.group:
+    name: cytech_grp
+    state: present
+  become: true
+
+- name: Create user cytech_usr in cytech_grp
+  ansible.builtin.user:
+    name: cytech_usr
+    groups: cytech_grp
+    state: present
+    password: formation  
+  become: true
+
+- name: Grant privileges to cytech_usr on cytech database
+  community.mysql.mysql_user:
+    name: cytech_usr
+    login_user: root
+    login_password: formation
+    host: localhost
+    priv: "cytech.*:ALL"
+  become: true
+
+
+- name: Create tmp directory on the server
+  ansible.builtin.file:
+    path: /tmp
+    state: directory
+  become: true
+
+- name: Display content of create_table.sql
+  debug:
+    msg: "{{ lookup('file', 'RoleMySQL/create_table.sql') }}"
+
+- name: Copy create_table.sql to the server
+  ansible.builtin.copy:
+    src: RoleMySQL/create_table.sql  
+    dest: /tmp/create_table.sql  
+
+
+- name: Create cytech database and execute SQL script
+  community.mysql.mysql_db:
+    name: cytech
+    login_user: cytech_usr
+    login_password: formation
+    state: import
+    target: "/tmp/create_table.sql"
+    login_unix_socket: /var/run/mysqld/mysqld.sock  
+  become: true
+
+
+

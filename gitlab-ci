@@ -1,0 +1,62 @@
+image:
+  name: lagallbapt/ovf
+  entrypoint:
+    - '/usr/bin/env'
+    - 'PATH=/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin'
+
+variables:
+  ESXI_PASSWORD: $ESXI_PASSWORD  
+  MACHINE_PASSWORD: $MACHINE_PASSWORD  
+
+stages:
+  - terraform_apply
+  - ansible_deploy
+  - test_application
+  - destroy_vm
+
+terraform_apply:
+  stage: terraform_apply
+  script:
+    - ./terraform/script_init.sh
+    - cd terraform
+    - terraform plan -var "esxi_password=$ESXI_PASSWORD" -var "machine_password=$MACHINE_PASSWORD"
+    - terraform apply -var "esxi_password=$ESXI_PASSWORD" -var "machine_password=$MACHINE_PASSWORD"
+  when: manual
+  tags:
+    - lab14
+
+ansible_deploy:
+  stage: ansible_deploy
+  script:
+    - cd ..
+    - cd ansible
+    - ansible --version
+    - ansible-playbook deploy_app.yml -i inventory.ini --extra-vars "esxi_password=$ESXI_PASSWORD machine_password=$MACHINE_PASSWORD"
+  when: manual
+  tags:
+    - lab14
+
+test_application:
+  stage: test_application
+  script:
+    - curl http://10.10.10.141:8080
+    - /home/formation/venv/bin/python /tmp/flask_app.py
+  when: manual
+  tags:
+    - lab14
+
+destroy_vm-stage:
+  stage: destroy_vm
+  before_script:
+    - echo "VM it's to be destroyed..."
+  script: 
+    - cd ..
+    - cd terraform
+    - ./script_init.sh
+    - terraform --version
+    - terraform destroy -var "esxi_password=$ESXI_PASSWORD" -var "machine_password=$MACHINE_PASSWORD"
+  when: manual
+  tags:
+    - lab14
+
+

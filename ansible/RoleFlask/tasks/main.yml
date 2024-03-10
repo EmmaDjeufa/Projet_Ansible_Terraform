@@ -1,0 +1,89 @@
+---
+# roles/RoleFlask/tasks/main.yml
+
+- name: Install necessary packages
+  apt:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - python3
+    - python3-pip
+    - virtualenv
+
+- name: Remove existing virtual environment directory
+  ansible.builtin.file:
+    path: /home/formation/venv
+    state: absent
+
+- name: Create virtual environment
+  ansible.builtin.command:
+    cmd: "python3 -m venv /home/formation/venv"
+
+- name: Activate virtual environment
+  ansible.builtin.shell:
+    cmd: "/bin/bash -c 'source /home/formation/venv/bin/activate'"
+    chdir: "/home/formation"
+
+
+- name: Install Flask and required packages
+  ansible.builtin.pip:
+    name: "{{ item }}"
+    virtualenv: /home/formation/venv
+  loop:
+    - flask
+    - flask-mysql
+
+- name: Copy MySQL configuration file to remote server
+  ansible.builtin.copy:
+    src: "~/.my.cnf"
+    dest: "/root/.my.cnf"
+    owner: root
+    group: root
+    mode: '0600'
+    remote_src: true
+  delegate_to: 10.10.10.141
+
+
+- name: Open connection to the cytech database
+  ansible.builtin.command:
+    cmd: "mysql -u cytech_usr -pformation -h 10.10.10.140 -D cytech -e 'SELECT name FROM cytech'"
+  become: true
+  register: db_connection_result
+
+
+- name: Display database connection result
+  ansible.builtin.debug:
+    var: db_connection_result.stdout_lines
+
+- name: Create tmp directory on the server
+  ansible.builtin.file:
+    path: /tmp
+    state: directory
+  become: true
+
+- name: Set permissions for /tmp directory
+  ansible.builtin.file:
+    path: /tmp
+    state: directory
+    mode: '0777'
+  become: true
+
+
+- name: Copy Flask files to remote server
+  ansible.builtin.copy:
+    src: RoleFlask/flask_app.py
+    dest: /tmp/flask_app.py
+    mode: '0755'
+  delegate_to: 10.10.10.141
+
+- name: Copy HTML files to remote server
+  ansible.builtin.copy:
+    src: RoleFlask/connexion.html
+    dest: /tmp/connexion.html
+    mode: '0755'
+  delegate_to: 10.10.10.141
+
+- name: Launch Flask API on port 8080
+  ansible.builtin.command: 
+    cmd: "/home/formation/venv/bin/python /tmp/flask_app.py"
+  become: true

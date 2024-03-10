@@ -1,0 +1,21 @@
+#deploy_app.yml
+---
+
+- name: Test du role MySQL
+  hosts: lab_14
+  become: true
+  roles:
+    - role: 'RoleMySQL'
+  tasks:
+    - ansible.builtin.include_role:
+        name: 'RoleMySQL'
+
+- name: Test du role Flask
+  hosts: lab14
+  become: true
+  roles:
+    - role: 'RoleFlask'
+  tasks:
+    - ansible.builtin.include_role:
+        name: 'RoleFlask'
+        tasks_from: main

@@ -1,0 +1,16 @@
+#cloud-config
+
+instance-id: ${name}
+local-hostname: ${name}
+network:
+  version: 1
+  config:
+    - type: physical
+      name: ens35
+      subnets:
+        - type: static
+          address: ${ip_address}/24
+          gateway: 10.10.10.254
+    - type: nameserver
+      address:
+        - 10.10.10.254
